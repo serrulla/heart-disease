@@ -1,0 +1,23 @@
+---
+title: "P2_Serrulla_Eric"
+author: "Eric Serrulla"
+date: "12/21/2019"
+output:
+  pdf_document:
+    toc: yes
+  html_document:
+    toc: yes
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+# 1. Descripción del dataset  
+Este dataset es interesate porque permite conocer relaciones entre distintas variables que condicionan las enfermedades cardiovasculares. Puede usarse para realizar estudios medicinales. Con este dataset se pretende responder a preguntas como si varía en función de la edad, etc.
+
+# 2. Integración y selección de los datos de interés a analizar  
+
+
+
