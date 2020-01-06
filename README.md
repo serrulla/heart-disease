@@ -13,7 +13,7 @@ Esta práctica se ha realizado de manera individual por **Eric Serrulla**
  - **src/P2_Serrulla_Eric.R:** Código fuente en R
  - **src/P2_Serrulla_Eric.Rmd:** Docuemnto en formato Rmarkdown que genera el PDF anterior
  - **heart.csv:** Dataset previo al tratamiento, descargado de [Kaggle](https://www.kaggle.com/ronitf/heart-disease-uci/)
- - **heart.csv:** Dataset final exportado tras su limpieza y análisis
+ - **heart-clean.csv:** Dataset final exportado tras su limpieza y análisis
 
 
 
