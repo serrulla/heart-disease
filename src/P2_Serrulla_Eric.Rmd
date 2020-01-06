@@ -1,0 +1,349 @@
+---
+title: "Práctica 2 - Limpieza y análisis de datos"
+author: "Eric Serrulla"
+date: "12/21/2019"
+output:
+  pdf_document:
+    toc: yes
+  html_document:
+    toc: yes
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(knitr)
+```
+\pagebreak
+
+# 1. Descripción del dataset  
+El dataset escogido **Heart Desease UCI** se ha descargado de Kaggle y corresponde a los resultados de pruebas sobre pacientes que presentan o no enfermedades cardiovasculares. Es el resultado de 4 bases de datos provinientes de Cleveland, Hungría, Suiza y VA Long Beach.  
+Este dataset es interesate porque permite conocer relaciones entre distintas variables que condicionan las enfermedades cardiovasculares.  
+Puede usarse para realizar estudios medicinales, para predecir potenciales enfermedades cardiovasculares o encontrar patrones en los síntomas, por ejemplo. Con este dataset se pretende responder a preguntas como _¿Se incrementa el riesgo de padecer enferemdades cardiovasculares según el género de la persona? ¿Cómo varían los síntomas según la edad y otras medidas relativas al sistema cardiovascular?_.
+
+# 2. Integración y selección de los datos de interés a analizar  
+
+El fichero de datos contiene un total de 303 registros para 14 variables. Estas variables son:
+
+* **age**. Edad de la persona en años
+* **sex**. Género: 1 = masculino; 0 = femenino
+* **cp**. Tipo de dolor en el pecho (Del 1 al 4). 
+    1. Angina típica
+    2. Angina atípica
+    3. Dolor no anginal
+    4. Asintomático
+* **trestbps**. Presión arterial en reposo, en mm Hg, al ingresar en el hospital.
+* **chol**. Colesterol sérico en mg/dl.
+* **fbs**. Si el azúcar en sangre en ayunas es mayor a 120 mg/dl. 1 = verdadero; 0 = falso. 
+* **restecg**. Resultados electrocardiográficos en reposo (Del 0 al 2). 
+    0. Normal
+    1. Anormalidad de la onda ST-T (inversiones de la onda T y/o elevación o depresión del ST > 0.05 mV)
+    2. Muestra probable o definitiva hipertrofia ventricular izquierda según el _Estes' criteria_.  
+* **thalach**. Máxima frecuencia cardíaca alcanzada.
+* **exang**. Angina inducida por ejercicio. 1 = verdadero; 0 = falso.
+* **oldpeak**. Depresión del ST inducida por el ejercicio relativo al descanso.
+* **slope**. Pendiente de ST en el pico de ejercicio (Del 1 al 3).  
+    1. Ascendiente
+    2. Plana
+    3. Descendente
+* **ca**. Número de vasos principales (0-3) coloreados por fluorospía.
+* **thal**. THAL. (Del 1 al 3).
+    1. Defecto fijo
+    2. Normal
+    3. Defecto reversible
+* **target**. 0 = No tiene enfermedad cardiovascular. 1 = Tiene enfermedad cardiovascular.  
+
+\pagebreak
+# 3. Limpieza de los datos  
+## 3.1. Elementos vacíos  
+```{r}
+heartData <- read.csv('heart.csv')
+head(heartData)
+summary(heartData)
+```  
+
+Encontramos que en el caso de la variable `thal`, hay 2 registros con valor fuera de rango, es decir, con valor 0. Gracias a la documentación del repositorio sabemos que estos valores corresponden a datos desconocidos, que en el dataset original habían sido marcados con un "?".
+Lo mismo pasa con las filas de `ca` que contienen valor 4, fuera del rango 0-3.
+Para tratarlos como elementos vacíos los pasamos a tipo NA.
+
+```{r}
+emptyCa <- which(heartData$ca > 3)
+heartData[emptyCa,]$ca <- NA
+emptyThal <- which(heartData$thal == 0)
+heartData[emptyThal,]$thal <- NA
+```
+
+Solucionados estos valores, corregimos las variables a numéricas y factor, para así poder trabajar con ellas en su formato correcto.  
+
+```{r}
+heartData$age <- as.numeric(heartData$age)
+heartData$trestbps <- as.numeric(heartData$trestbps)
+heartData$chol <- as.numeric(heartData$chol)
+heartData$thalach <- as.numeric(heartData$thalach)
+heartData$sex <- factor(heartData$sex)
+levels(heartData$sex) <- c("female", "male")
+heartData$cp <- factor(heartData$cp)
+levels(heartData$cp) <- c("typical","atypical","non-anginal","asymptomatic")
+heartData$fbs <- factor(heartData$fbs)
+levels(heartData$fbs) <- c("false", "true")
+heartData$restecg <- factor(heartData$restecg)
+levels(heartData$restecg) <- c("normal","stt","hypertrophy")
+heartData$exang <- factor(heartData$exang)
+levels(heartData$exang) <- c("no","yes")
+heartData$slope <- factor(heartData$slope)
+levels(heartData$slope) <- c("upsloping","flat","downsloping")
+heartData$ca <- factor(heartData$ca)
+heartData$thal <- factor(heartData$thal)
+levels(heartData$thal) <- c("normal","fixed","reversable")
+heartData$target <- factor(heartData$target)
+levels(heartData$target) <- c("no","yes")
+
+summary(heartData)
+```
+
+Para imputar el valor de los  `ca` y `thal` perdidos lo haremos mediante el método de k-vecinos más próximos, (**kNN-imputation**). Para ello utilizaremos la librería VIM.  
+
+```{r}
+table(heartData$ca) #Previsualización de los valores de ca
+table(heartData$thal) #Previsualización de los valores de thal
+
+
+suppressWarnings(suppressMessages(library(VIM)))
+heartData$ca <- kNN(heartData)$ca
+heartData$thal <- kNN(heartData)$thal
+
+table(heartData$ca)  #Previsualización de los valores de ca tras imputación
+table(heartData$thal) #Previsualización de los valores de thal tras imputación
+```
+
+
+
+## 3.2. Identificación y tratamiento de valores extremos  
+Comprobamos mediante el diagrama de cajas la distribución de las variables para encontrar posibles valores extremos.  
+
+```{r}
+boxplot(heartData$age)
+title("Age")
+boxplot(heartData$trestbps)
+title("Resting blood pressure")
+```
+
+
+En la presión arterial en reposo, los valores fuera y alejados de la caja no se tratan de valores extremos que se traduzcan en error de inserción. Si lo vemos en un gráfico plot, se entiende mejor. 
+```{r}
+plot(heartData$trestbps) 
+title("Resting blood pressure")
+```
+
+En este estudio nos interesa encontrar esos picos en los niveles de presión arterial, ya que se salen del rango recomendable, y lo mismo si fueran demasiado bajos.   
+
+
+```{r}
+boxplot(heartData$chol)
+title("Serum cholestoral (mg/dl)")
+plot(heartData$chol) 
+title("Serum cholestoral (mg/dl)")
+```
+
+
+En los niveles de colesterol encontramos un caso donde el valor de estos son 564. Aunque es un valor muy alto, tiene sentido ya que esta persona indica enfermedad (valor target = yes).   
+```{r}
+heartData[which(heartData$chol>500),]
+```  
+
+```{r}
+boxplot(heartData$thalach)
+title("Maximum heart rate achieved")
+boxplot(heartData$oldpeak)
+title("ST depression")
+```  
+
+# 4. Análisis de los datos  
+## 4.1. Selección de los grupos de datos que se quieren analizar/comparar (planificación de los análisis a aplicar).  
+
+Antes de comenzar seleccionaremos las variables numéricas y visualizamos si hay relación entre ellas.  
+
+```{r}
+heartData.numeric <- heartData[,unlist(lapply(heartData, is.numeric))]
+plot(heartData.numeric)
+```
+
+Aparentemente no podemos afirmar que hay relación directa entre dos variables, ya que los gráficos no lo indican con suficiente definición. Por ello, pasamos a observar los resultados del **coeficiente de correlación** mediante la **prueba de Spearman**.  
+
+```{r}
+corr_matrix <- matrix(nc = 2, nr = 0)
+colnames(corr_matrix) <- c("estimate", "p-value")
+# Calcular el coeficiente de correlación para cada variable cuantitativa con respecto al campo "age"
+for (i in 2:(ncol(heartData.numeric))) {
+  spearman_test = cor.test(heartData.numeric[,i],
+                           heartData.numeric[,1],
+                           method = "spearman",
+                           exact = FALSE)
+  corr_coef = spearman_test$estimate
+  p_val = spearman_test$p.value
+  
+  # Se añade una fila nueva a la matriz 
+  pair = matrix(ncol = 2, nrow = 1)
+  pair[1][1] = corr_coef
+  pair[2][1] = p_val
+  corr_matrix <- rbind(corr_matrix, pair)
+  rownames(corr_matrix)[nrow(corr_matrix)] <- colnames(heartData.numeric)[i]
+}
+
+par(mfrow=c(1,1))
+print(corr_matrix)
+```
+
+El valor más alto del coeficiente de correlación (`0.398`) que encontramos respecto a la edad es con la variable de la **máxima frecuencia cardíaca alcanzada**, y es de tipo inversamente proporcional. Si observamos el gráfico anterior, a pesar de la amplia dispersión, se aprecia una ligera pendiente negativa.  
+
+Con esta información, formulamos las pruebas que queremos llevar a cabo:  
+
+- Sexo y resultado en la prueba. ¿Son los hombres són más propensos a sufrir enfermedades cardiovasculares respecto a las mujeres? 
+- Influencia de la edad y resultado en la prueba. Predecir la frecuencia cardíaca máxima según la edad del paciente.
+- Predicción del diagnóstico de enfermedad teniendo en cuenta los resultados en las pruebas y el perfil del paciente.
+
+Para los análisis que queremos realizar es necesario disponer de todas las columnas de datos.  
+
+## 4.2. Comprobación de la normalidad y homogeneidad de la varianza.  
+
+Para comprobar si podemos asumir normalidad en la distribución de la muestra, observamos el **gráfico de cuantiles** y el **histograma** de cada una de las variables numéricas, además de aplicar el **test de Shapiro-Wilk**. 
+
+```{r}
+par(mfrow=c(2,2))
+for(i in 1:ncol(heartData.numeric)) {
+  title <- colnames(heartData.numeric[i])
+  qqnorm(heartData.numeric[,i],main = paste("Normal Q-Q Plot for",title))
+  qqline(heartData.numeric[,i],col="red")
+  hist(heartData.numeric[,i],
+        xlab= title,
+        freq = FALSE,
+        main = paste("Histogram of", title))
+  shapiro.test(heartData.numeric[,i])
+  print(paste("Test for", title))
+  print(shapiro.test(heartData.numeric[,i]))
+}
+```
+
+
+Podemos comprobar que todas las variables pueden ser aproximadas a una distribución normal, a pesar de que no estén normalizadas. Como el tamaño de la muestra es superior a 30, podemos aplicar el **teorema del límite central** y asumir normalidad en la distribución de la muestra.  
+Estudiamos ahora la homogeneidad de varianzas mediante la aplicación de un **test de Fligner-Killeen**. En este caso, estudiaremos esta homogeneidad en cuanto al colesterol los grupos conformados por mujeres frente a los hombres.   
+
+```{r}
+fligner.test(chol ~ sex, data = heartData)
+```  
+
+
+Para un nivel de confianza del 95% no podemos concluir que existe homogeneidad en la varianza de los dos grupos, ya que el p-valor resultante del test es menor al nivel de significancia 0.05 marcado por el nivel de confianza.  
+
+
+## 4.3. Aplicación de pruebas estadísticas para comparar los grupos de datos.  
+
+### 4.3.1. Contraste de hipótesis sobre el colesterol en hombres y mujeres   
+Lo primero será hacer un contraste de hipótesis sobre dos muestras para determinar si los niveles de colesterol en mujeres son los mismos que en hombres o son mayores. Para ello formulamos bajo un nivel de confianza del 95%, la **hipótesis nula $H_0$** y la **alternativa $H_1$**, que comparan la diferencia entre las dos medias $\mu_1$, $\mu_2$ correspondientes a las muestras de cada sexo:  
+
+$H_0: \mu_1 - \mu_2 = 0$  
+$H_1: \mu_1 - \mu_2 > 0$  
+
+```{r}
+t.test(heartData[heartData$sex == "female",]$chol, heartData[heartData$sex == "male",]$chol)
+```
+
+Para un nivel de confianza del 95% obtenemos un p-valor de 0.003, inferior al nivel de confianza 0.05, por lo tanto rechazamos la hipótesis de que la media de niveles de colesterol entre hombres y mujeres es igual. En su lugar aceptamos la hipótesis alternativa de que la media de niveles de colesterol en mujeres es **superior** a la de los de los hombres. 
+
+### 4.3.2. Modelo de regresión lineal   
+Tras la visualización de correlaciones en el apartado 4.1, procedemos a crear un modelo de regresión lineal simple con la **frecuencia cardíaca máxima alcanzada** como variable dependiente y la **edad** como independiente. 
+
+```{r}
+model <- lm(thalach ~ age, data = heartData.numeric)
+summary(model)
+```
+
+El valor de _**R-squared**_ es muy bajo, por lo que no es un modelo óptimo. Probamos a añadir más variables independientes para ver cómo cambia este valor.  
+
+```{r}
+model <- lm(thalach ~ ., data = heartData.numeric)
+summary(model)
+```
+
+Con todas las demás variables numéricas como independientes, el modelo mejora hasta un `0.246`, aunque aún está lejos del que consideraríamos un modelo ideal.   
+Utilizando este modelo, pasamos a predecir los valores de `thalach` y comparar los resultados con los reales. Para ello, dedicaremos un 80% del dataset para entrenar el modelo y un 20% para probarlo.
+
+```{r}
+# Predicción de thalach para pacientes con enfermedad cardiovascular  
+heartData.glm<-heartData[which(heartData$target=="yes"),]
+ntrain <- nrow(heartData.glm)*0.8
+ntest <- nrow(heartData.glm)*0.2
+index_train<-sample(1:nrow(heartData.glm),size = ntrain)
+train<-heartData.glm[index_train,]
+test<-heartData.glm[-index_train,]
+model<-lm(thalach ~ age, data=train)
+summary(model)
+
+predicted.data<-predict(model, test, type="response")
+mc_sl<-data.frame(
+  real=test$thalach,
+  predicted= predicted.data,
+  dif=ifelse(test$thalach>predicted.data, -predicted.data*100/test$thalach,predicted.data*100/test$thalach)
+)
+colnames(mc_sl)<-c("Real","Predicho","Dif (%)")
+kable(mc_sl)
+```
+
+Como era de esperar, el modelo se aproxima bastante bien en algunos casos pero en general se desvía demasiado, por lo que no es fiable si lo que buscamos es obtener valores muy aproximados a la realidad.  
+
+
+### 4.3.3. Modelo de regresión logística  
+Para estimar si el paciente sufre enfermedad cardiovascular o no, creamos un modelo de regresión logística y observamos qué variables tienen más peso a la hora de estimar el diagnóstico.  
+
+```{r}
+glmodel <- glm(target ~ ., data = heartData, family = "binomial")
+summary(glmodel)
+```
+
+Observamos que solo algunas de las variables son significantes para el modelo. Creamos una tabla con los valores de `target` y la probabilidad calculada por el modelo y ordenamos las filas por el valor de probabilidad ascendente.     
+
+```{r}
+predicted.data<-data.frame(
+  real=heartData$target,
+  predicted.probability= glmodel$fitted.values
+)
+
+
+predicted.data <- predicted.data[order(predicted.data$predicted.probability, decreasing=FALSE),]
+predicted.data$rank <- 1:nrow(predicted.data)
+
+kable(head(predicted.data))
+kable(tail(predicted.data))
+```
+
+Podemos observar como los niveles bajos de probabilidad se corresponden con el valor `no` del atributo `target`, que describe si el paciente sufre o no enfermedad cardiovascular, mientras que los niveles altos indican el caso afirmativo. Por lo tanto, el modelo ha funcionado bastante bien. A continuación se muestra la misma información en formato gráfico:  
+
+```{r}
+library(ggplot2)
+suppressWarnings(suppressMessages(library(cowplot)))
+
+ggplot(data=predicted.data, aes(x=rank, y=predicted.probability)) +
+  geom_point(aes(color=real), alpha=1, shape=4, stroke=2) +
+  xlab("Index") +
+  ylab("Predicted probability of getting heart disease")
+
+```
+
+Por último, probamos el modelo para predecir el diagnóstico de una persona nueva. En este caso, de una mujer de 41 años.  
+
+```{r}
+prob <- predict(glmodel, data.frame(age=41, sex = "female", cp="atypical", trestbps=130, chol=204, fbs="false", restecg="normal", thalach=172, exang="no", oldpeak= 1.4, slope="downsloping", ca="0", thal= "fixed") , type = "response")
+print(paste("La probabilidad de que padezca enfermedad cardiovascular es de", format(round(prob*100, 2), nsmall = 2), "%"))
+```
+
+
+# 5. Conclusiones  
+Tras limpiar y analizar el conjunto de datos, podemos concluir que estos datos no son precisamente fáciles de relacionar, ya que aunque se presentan distintas variables, cada una tiene su peso y ninguna es definitiva a la hora de diagnosticar una enfermedad cardiovascular. Es por esto que sirve más para analizar el conjunto y generar modelos predictivos, más que encontrar causa-efecto entre las variables. Hemos visto que sí hay diferencia entre hombres y mujeres respecto a los resultados, así como que la frecuencia cardíaca máxima alcanzada está bastante relacionada con la edad. Hemos generado un modelo de regresión logística que nos ayuda a calcular la probabilidad de enfermedad teniendo en cuenta los valores que nos presentan las pruebas que han generado el conjunto de datos. 
+
+# 7. Resultado  
+Los datos analizados se pueden consultar en formato CSV en el repositorio, bajo el nombre `heart-clean.csv`.  
+```{r}
+#Exportación de datos en fichero CSV
+write.csv(heartData, "heart-clean.csv")
+```
+
+
