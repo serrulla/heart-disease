@@ -9,7 +9,7 @@ Esta práctica se ha realizado de manera individual por **Eric Serrulla**
 
 ## Ficheros
 
- - **P2_Serrulla_Eric.PDF:** Documento con el código y la descripción de la práctica
+ - **docs/P2_Serrulla_Eric.PDF:** Documento con el código y la descripción de la práctica
  - **src/P2_Serrulla_Eric.R:** Código fuente en R
  - **src/P2_Serrulla_Eric.Rmd:** Docuemnto en formato Rmarkdown que genera el PDF anterior
  - **heart.csv:** Dataset previo al tratamiento, descargado de [Kaggle](https://www.kaggle.com/ronitf/heart-disease-uci/)
